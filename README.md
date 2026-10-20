@@ -14,3 +14,15 @@ python bot.py
 ```
 Only run it in subreddits that allow bots (or that you mod) - Reddit bans spammy bots.
 It has a 60s cooldown between replies (`COOLDOWN_SECONDS`) and ignores its own comments.
+
+## tinybrowse
+
+`tinybrowse.py` is a text-mode web browser built to use as little RAM as possible
+(~20 MB peak, stdlib only; no JS, images, CSS, cache or tabs; 1 MB page cap;
+only the current page's text and link table are kept).
+
+    python3 tinybrowse.py https://example.com
+    python3 tinybrowse.py --dump https://example.com   # print page + peak RSS
+
+Keys: `o` open URL, `j/k` scroll, `space/b` page, `g/G` top/bottom, digits+`Enter`
+follow link, `B` back, `/` find, `q` quit.
