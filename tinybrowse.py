@@ -11,7 +11,6 @@ Usage:  tinybrowse.py [url]          interactive (curses, or plain prompt if
         tinybrowse.py --dump url     print rendered page and peak RSS, then exit
 """
 import gzip
-import resource
 import sys
 import textwrap
 import urllib.request
@@ -115,7 +114,29 @@ def fetch(url):
 
 
 def peak_mb():
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    try:
+        import resource  # Unix
+        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    except ImportError:  # Windows: PeakWorkingSetSize via ctypes
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class PMC(ctypes.Structure):
+                _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] + [
+                    (n, ctypes.c_size_t) for n in (
+                        "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
+                        "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
+                        "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")]
+            pmc = PMC()
+            pmc.cb = ctypes.sizeof(pmc)
+            k32 = ctypes.windll.kernel32
+            k32.GetCurrentProcess.restype = wintypes.HANDLE
+            ok = ctypes.windll.psapi.GetProcessMemoryInfo(
+                k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb)
+            return pmc.PeakWorkingSetSize / 1048576 if ok else 0.0
+        except Exception:
+            return 0.0
 
 
 def ui(scr, start):
