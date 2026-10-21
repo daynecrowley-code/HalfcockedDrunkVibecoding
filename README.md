@@ -26,3 +26,5 @@ only the current page's text and link table are kept).
 
 Keys: `o` open URL, `j/k` scroll, `space/b` page, `g/G` top/bottom, digits+`Enter`
 follow link, `B` back, `/` find, `q` quit.
+
+No curses (e.g. Windows on ARM)? It falls back to a plain prompt automatically, or force it with `--plain`.

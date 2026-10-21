@@ -5,10 +5,11 @@ No JavaScript, no images, no CSS, no cache, no tabs. Only the rendered text
 lines and link table of the *current* page are kept in memory; the raw HTML is
 streamed through a parser and discarded. Stdlib only.
 
-Usage:  tinybrowse.py [url]          interactive (curses)
+Usage:  tinybrowse.py [url]          interactive (curses, or plain prompt if
+                                     curses is unavailable, e.g. Windows ARM)
+        tinybrowse.py --plain [url]  force the plain prompt mode
         tinybrowse.py --dump url     print rendered page and peak RSS, then exit
 """
-import curses
 import gzip
 import resource
 import sys
@@ -118,6 +119,7 @@ def peak_mb():
 
 
 def ui(scr, start):
+    import curses
     curses.curs_set(0)
     hist, url, lines, links, top = [], "", [], [], 0
     status = "o:open  j/k:scroll  space/b:page  1-9..Enter:follow link  B:back  /:find  q:quit"
@@ -204,6 +206,42 @@ def ui(scr, start):
             num = ""
 
 
+def plain(start):
+    """Curses-free mode: prints the page, then reads a command per line."""
+    url, lines, links, top = "", [], [], 0
+    rows = 24
+    cmd = start
+    while True:
+        if cmd and cmd.startswith(("http", "www")) or (cmd and "." in cmd and " " not in cmd and not cmd.isdigit()):
+            try:
+                url, lines, links = fetch(cmd)
+                top = 0
+            except Exception as e:
+                print("error:", e)
+        elif cmd and cmd.isdigit() and 1 <= int(cmd) <= len(links):
+            try:
+                url, lines, links = fetch(links[int(cmd) - 1])
+                top = 0
+            except Exception as e:
+                print("error:", e)
+        elif cmd in ("", "n") and lines:
+            top = min(top + rows, max(0, len(lines) - 1))
+        elif cmd == "p":
+            top = max(0, top - rows)
+        elif cmd == "q":
+            return
+        elif cmd:
+            print("unknown command")
+        if lines:
+            print("\n".join(lines[top:top + rows]))
+            print("-- %s | %.0fMB peak | line %d/%d" % (url, peak_mb(), top, len(lines)))
+        print("[Enter/n]=next  p=prev  <number>=follow link  <url>=open  q=quit")
+        try:
+            cmd = input("> ").strip()
+        except EOFError:
+            return
+
+
 def main():
     a = sys.argv[1:]
     if a[:1] == ["--dump"] and len(a) > 1:
@@ -211,6 +249,15 @@ def main():
         print("\n".join(lines))
         print("\n--- %d links, peak RSS %.1f MB ---" % (len(links), peak_mb()), file=sys.stderr)
         return
+    force = a[:1] == ["--plain"]
+    if force:
+        a = a[1:]
+    try:
+        if force:
+            raise ImportError
+        import curses
+    except ImportError:
+        return plain(a[0] if a else None)
     curses.wrapper(ui, a[0] if a else None)
 
 
