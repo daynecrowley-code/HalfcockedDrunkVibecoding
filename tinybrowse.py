@@ -130,9 +130,11 @@ def peak_mb():
                         "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")]
             pmc = PMC()
             pmc.cb = ctypes.sizeof(pmc)
-            k32 = ctypes.windll.kernel32
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
             k32.GetCurrentProcess.restype = wintypes.HANDLE
-            ok = ctypes.windll.psapi.GetProcessMemoryInfo(
+            k32.K32GetProcessMemoryInfo.argtypes = [
+                wintypes.HANDLE, ctypes.POINTER(PMC), wintypes.DWORD]
+            ok = k32.K32GetProcessMemoryInfo(
                 k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb)
             return pmc.PeakWorkingSetSize / 1048576 if ok else 0.0
         except Exception:
@@ -246,14 +248,18 @@ def plain(start):
             except Exception as e:
                 print("error:", e)
         elif cmd in ("", "n") and lines:
-            top = min(top + rows, max(0, len(lines) - 1))
+            if top + rows >= len(lines):
+                print("(end of page)")
+                cmd = None
+            else:
+                top += rows
         elif cmd == "p":
             top = max(0, top - rows)
         elif cmd == "q":
             return
         elif cmd:
             print("unknown command")
-        if lines:
+        if lines and cmd is not None:
             print("\n".join(lines[top:top + rows]))
             print("-- %s | %.0fMB peak | line %d/%d" % (url, peak_mb(), top, len(lines)))
         print("[Enter/n]=next  p=prev  <number>=follow link  <url>=open  q=quit")
